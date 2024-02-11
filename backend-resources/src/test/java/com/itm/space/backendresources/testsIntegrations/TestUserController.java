@@ -1,15 +1,12 @@
-package com.itm.space.backendresources;
+package com.itm.space.backendresources.testsIntegrations;
 
 import com.itm.space.backendresources.api.request.UserRequest;
 import com.itm.space.backendresources.api.response.UserResponse;
 import com.itm.space.backendresources.exception.BackendResourcesException;
 import com.itm.space.backendresources.mapper.UserMapper;
-import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.RequestBody;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.keycloak.admin.client.Keycloak;
@@ -25,12 +22,13 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.*;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
 import javax.ws.rs.core.Response;
-
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,6 +57,7 @@ public class TestUserController extends BaseIntegrationTest {
     private MappingsRepresentation mappingsRepresentation;
     @Mock
     private Response response;
+
     @Mock
     private RealmResource realmResource;
     private final UserRequest userRequest = new UserRequest("user1", "user1@gmail.com", "user1", "user1", "user1");
@@ -72,30 +71,26 @@ public class TestUserController extends BaseIntegrationTest {
     private final UUID id = UUID.randomUUID();
     @Mock
     private UserMapper userMapper;
-    private String tokenUri = "http://backend-keycloak-auth:8080/auth/realms/ITM/protocol/openid-connect/token";
-
-    public String getAccessTokenString() throws JSONException, IOException {
-        return getJSONResponse().get("access_token").toString();
-    }
-    public JSONObject getJSONResponse() throws IOException, JSONException {
-        OkHttpClient client = new OkHttpClient();
-        RequestBody body = RequestBody.create(MediaType.parse("application/x-www-form-urlencoded")
-                , "username=mike" +
-                        "&password=qwe&client_id=backend-gateway-client&grant_type=password&client_secret" +
-                        "=QfWtB8cFbPgqgyTxjdIUN4L6TDrxK1dZ");
-        Request request = new Request.Builder()
-                .url(tokenUri)
-                .method("POST", body)
-                .addHeader("Content-Type", "application/x-www-form-urlencoded")
-                .build();
-        com.squareup.okhttp.Response response = client.newCall(request).execute();
-        return new JSONObject(response.body().string());
-    }
 
     @Test
-    public void testGetAccessToken() throws JSONException, IOException {
-        Assertions.assertNotNull(getAccessTokenString());
-        Assertions.assertInstanceOf(String.class, getAccessTokenString());
+    public void backendKeycloakAuthServerTest() {
+        RestTemplate restTemplate = new RestTemplate();
+
+        String tokenUri = "http://backend-keycloak-auth:8080/auth/realms/ITM/protocol/openid-connect/token";
+
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+        requestBody.add("username", "mike");
+        requestBody.add("password", "qwe");
+        requestBody.add("client_id", "backend-gateway-client");
+        requestBody.add("grant_type", "password");
+        requestBody.add("client_secret", "QfWtB8cFbPgqgyTxjdIUN4L6TDrxK1dZ");
+
+        ResponseEntity<String> responseEntity = restTemplate.postForEntity(tokenUri, requestBody, String.class);
+
+        Assertions.assertNotNull(responseEntity.getBody());
     }
 
     @Test
@@ -119,7 +114,6 @@ public class TestUserController extends BaseIntegrationTest {
         when(realmResource.users()).thenReturn(usersResource);
         when(usersResource.create(ArgumentMatchers.any(UserRepresentation.class))).thenReturn(response);
         when(response.getStatusInfo()).thenReturn(Response.Status.CREATED);
-
         mvc.perform(requestWithContent(post("/api/users"), userRequest))
                 .andExpect(status().is2xxSuccessful())
                 .andDo(print());

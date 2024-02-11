@@ -1,4 +1,4 @@
-package com.itm.space.backendresources;
+package com.itm.space.backendresources.testsIntegrations;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
